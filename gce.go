@@ -50,6 +50,9 @@ func setProj() {
 // requests to the http package's default transport.
 var Transport = NewTransport("default", http.DefaultTransport)
 
+// Client is an http Client that uses the default GCE transport.
+var Client = &http.Client{Transport: Transport}
+
 // NewTransport returns a transport that uses the provided GCE
 // serviceAccount (optional) to add authentication headers and then
 // uses the provided underlying "base" transport.
