@@ -45,6 +45,26 @@ func ProjectID() string {
 	return proj
 }
 
+// InternalIP returns the instance's primary internal IP address.
+func InternalIP() (string, error) {
+	return metaValueTrim("instance/network-interfaces/0/ip")
+}
+
+// ExternalIP returns the instance's primary external (public) IP address.
+func ExternalIP() (string, error) {
+	return metaValueTrim("instance/network-interfaces/0/access-configs/0/external-ip")
+}
+
+// Hostname returns the instance's hostname. This will probably be of
+// the form "INSTANCENAME.c.PROJECT.internal" but that isn't
+// guaranteed.
+//
+// TODO: what is this defined to be? Docs say "The host name of the
+// instance."
+func Hostname() (string, error) {
+	return metaValueTrim("network-interfaces/0/ip")
+}
+
 func setProj() {
 	proj, _ = MetadataValue("project/project-id")
 }
@@ -74,8 +94,15 @@ func InstanceID() (string, error) {
 // InstanceAttributes returns the list of user-defined attributes,
 // assigned when initially creating a GCE VM instance. The value of an
 // attribute can be obtained with InstanceAttributeValue.
-func InstanceAttributes() (Strings, error) {
-	j, err := MetadataValue("instance/attributes/")
+func InstanceAttributes() (Strings, error) { return attrs("instance/attributes/") }
+
+// ProjectAttributes returns the list of user-defined attributes
+// applying to the project as a whole, not just this VM.  The value of
+// an attribute can be obtained with ProjectAttributeValue.
+func ProjectAttributes() (Strings, error) { return attrs("project/attributes/") }
+
+func attrs(suffix string) (Strings, error) {
+	j, err := MetadataValue(suffix)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +117,12 @@ func InstanceAttributes() (Strings, error) {
 // instance attribute.
 func InstanceAttributeValue(attr string) (string, error) {
 	return MetadataValue("instance/attributes/" + attr)
+}
+
+// ProjectAttributeValue returns the value of the provided
+// project attribute.
+func ProjectAttributeValue(attr string) (string, error) {
+	return MetadataValue("project/attributes/" + attr)
 }
 
 // Contains reports whether v is contained in s.
