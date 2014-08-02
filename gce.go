@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -60,6 +61,11 @@ func InstanceTags() (Strings, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// InstanceID returns the current VM's numeric instance ID.
+func InstanceID() (string, error) {
+	return metaValueTrim("instance/id")
 }
 
 // InstanceAttributes returns the list of user-defined attributes,
@@ -120,13 +126,23 @@ type transport struct {
 	expires time.Time
 }
 
+var metaClient = &http.Client{
+	Transport: &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   750 * time.Millisecond,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		ResponseHeaderTimeout: 750 * time.Millisecond,
+	},
+}
+
 // MetadataValue returns a value from the metadata service.
 // The suffix is appended to "http://metadata/computeMetadata/v1/".
 func MetadataValue(suffix string) (string, error) {
 	url := "http://metadata/computeMetadata/v1/" + suffix
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Metadata-Flavor", "Google")
-	res, err := http.DefaultClient.Do(req)
+	res, err := metaClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -139,6 +155,12 @@ func MetadataValue(suffix string) (string, error) {
 		return "", err
 	}
 	return string(all), nil
+}
+
+func metaValueTrim(suffix string) (s string, err error) {
+	s, err = MetadataValue(suffix)
+	s = strings.TrimSpace(s)
+	return
 }
 
 func (t *transport) getToken() (string, error) {
