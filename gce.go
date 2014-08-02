@@ -45,6 +45,54 @@ func setProj() {
 	proj, _ = MetadataValue("project/project-id")
 }
 
+// Strings is a list of strings.
+type Strings []string
+
+// InstanceTags returns the list of user-defined instance tags,
+// assigned when initially creating a GCE instance.
+func InstanceTags() (Strings, error) {
+	var s Strings
+	j, err := MetadataValue("instance/tags")
+	if err != nil {
+		return nil, err
+	}
+	if err := json.NewDecoder(strings.NewReader(j)).Decode(&s); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// InstanceAttributes returns the list of user-defined attributes,
+// assigned when initially creating a GCE VM instance. The value of an
+// attribute can be obtained with InstanceAttributeValue.
+func InstanceAttributes() (Strings, error) {
+	j, err := MetadataValue("instance/attributes/")
+	if err != nil {
+		return nil, err
+	}
+	s := strings.Split(strings.TrimSpace(j), "\n")
+	for i := range s {
+		s[i] = strings.TrimSpace(s[i])
+	}
+	return Strings(s), nil
+}
+
+// InstanceAttributeValue returns the value of the provided VM
+// instance attribute.
+func InstanceAttributeValue(attr string) (string, error) {
+	return MetadataValue("instance/attributes/" + attr)
+}
+
+// Contains reports whether v is contained in s.
+func (s Strings) Contains(v string) bool {
+	for _, sv := range s {
+		if v == sv {
+			return true
+		}
+	}
+	return false
+}
+
 // Transport is an HTTP transport that adds authentication headers to
 // the request using the default GCE service account and forwards the
 // requests to the http package's default transport.
