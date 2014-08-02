@@ -10,6 +10,9 @@ https://code.google.com/p/go/source/browse/LICENSE
 
 // Package gce provides access to Google Compute Engine (GCE) metadata and
 // API service accounts.
+//
+// Most of this package is a wrapper around the GCE metadata service,
+// as documented at https://developers.google.com/compute/docs/metadata.
 package gce
 
 import (
@@ -110,6 +113,9 @@ var Client = &http.Client{Transport: Transport}
 // NewTransport returns a transport that uses the provided GCE
 // serviceAccount (optional) to add authentication headers and then
 // uses the provided underlying "base" transport.
+//
+// For more information on Service Accounts, see
+// https://developers.google.com/compute/docs/authentication.
 func NewTransport(serviceAccount string, base http.RoundTripper) http.RoundTripper {
 	if serviceAccount == "" {
 		serviceAccount = "default"
