@@ -27,6 +27,56 @@ import (
 	"time"
 )
 
+// Strings is a list of strings.
+type Strings []string
+
+// Contains reports whether v is contained in s.
+func (s Strings) Contains(v string) bool {
+	for _, sv := range s {
+		if v == sv {
+			return true
+		}
+	}
+	return false
+}
+
+var metaClient = &http.Client{
+	Transport: &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   750 * time.Millisecond,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		ResponseHeaderTimeout: 750 * time.Millisecond,
+	},
+}
+
+// MetadataValue returns a value from the metadata service.
+// The suffix is appended to "http://metadata/computeMetadata/v1/".
+func MetadataValue(suffix string) (string, error) {
+	url := "http://metadata/computeMetadata/v1/" + suffix
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Metadata-Flavor", "Google")
+	res, err := metaClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("status code %d trying to fetch %s", res.StatusCode, url)
+	}
+	all, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(all), nil
+}
+
+func metaValueTrim(suffix string) (s string, err error) {
+	s, err = MetadataValue(suffix)
+	s = strings.TrimSpace(s)
+	return
+}
+
 var (
 	projOnce sync.Once
 	proj     string
@@ -69,9 +119,6 @@ func setProj() {
 	proj, _ = MetadataValue("project/project-id")
 }
 
-// Strings is a list of strings.
-type Strings []string
-
 // InstanceTags returns the list of user-defined instance tags,
 // assigned when initially creating a GCE instance.
 func InstanceTags() (Strings, error) {
@@ -94,14 +141,14 @@ func InstanceID() (string, error) {
 // InstanceAttributes returns the list of user-defined attributes,
 // assigned when initially creating a GCE VM instance. The value of an
 // attribute can be obtained with InstanceAttributeValue.
-func InstanceAttributes() (Strings, error) { return attrs("instance/attributes/") }
+func InstanceAttributes() (Strings, error) { return lines("instance/attributes/") }
 
 // ProjectAttributes returns the list of user-defined attributes
 // applying to the project as a whole, not just this VM.  The value of
 // an attribute can be obtained with ProjectAttributeValue.
-func ProjectAttributes() (Strings, error) { return attrs("project/attributes/") }
+func ProjectAttributes() (Strings, error) { return lines("project/attributes/") }
 
-func attrs(suffix string) (Strings, error) {
+func lines(suffix string) (Strings, error) {
 	j, err := MetadataValue(suffix)
 	if err != nil {
 		return nil, err
@@ -125,14 +172,14 @@ func ProjectAttributeValue(attr string) (string, error) {
 	return MetadataValue("project/attributes/" + attr)
 }
 
-// Contains reports whether v is contained in s.
-func (s Strings) Contains(v string) bool {
-	for _, sv := range s {
-		if v == sv {
-			return true
-		}
+// Scopes returns the service account scopes for the given account.
+// The account may be empty or the string "default" to use the instance's
+// main account.
+func Scopes(serviceAccount string) (Strings, error) {
+	if serviceAccount == "" {
+		serviceAccount = "default"
 	}
-	return false
+	return lines("instance/service-accounts/" + serviceAccount + "/scopes")
 }
 
 // Transport is an HTTP transport that adds authentication headers to
@@ -163,43 +210,6 @@ type transport struct {
 	mu      sync.Mutex
 	token   string
 	expires time.Time
-}
-
-var metaClient = &http.Client{
-	Transport: &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout:   750 * time.Millisecond,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		ResponseHeaderTimeout: 750 * time.Millisecond,
-	},
-}
-
-// MetadataValue returns a value from the metadata service.
-// The suffix is appended to "http://metadata/computeMetadata/v1/".
-func MetadataValue(suffix string) (string, error) {
-	url := "http://metadata/computeMetadata/v1/" + suffix
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Metadata-Flavor", "Google")
-	res, err := metaClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return "", fmt.Errorf("status code %d trying to fetch %s", res.StatusCode, url)
-	}
-	all, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(all), nil
-}
-
-func metaValueTrim(suffix string) (s string, err error) {
-	s, err = MetadataValue(suffix)
-	s = strings.TrimSpace(s)
-	return
 }
 
 func (t *transport) getToken() (string, error) {
