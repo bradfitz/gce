@@ -1,5 +1,3 @@
-Package gce provides access to Google Compute Engine (GCE) metadata and
-API service accounts.
+Package gce provides access to Google Compute Engine (GCE) metadata server.
 
-See the code for docs, or as HTML at http://godoc.org/github.com/bradfitz/gce .
-
+This project has moved to http://godoc.org/google.golang.org/cloud/compute/metadata.
